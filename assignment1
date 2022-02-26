@@ -1,0 +1,64 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import enum
+class DistanceType(enum.Enum):
+    Euclidean = 0,
+    Pearson = 1
+data_raw = pd.read_csv("customer data.csv").iloc[:, 1:]
+data = (data_raw-data_raw.mean())/data_raw.std()
+def GUC_Euclidean(centroid, user):
+    return np.sum((centroid - user)**2)
+def GUC_Distance(centroids, data, dist_type=DistanceType.Euclidean):
+    mat = np.zeros([len(data), len(centroids)])
+    for c in range(len(centroids)):
+        for i in range(len(data)):
+            centroid = centroids[c]
+            user = data.iloc[i]
+            mat[i, c] = GUC_Euclidean(centroid, user)
+    return mat
+def GUC_K_mean_update(centroids, data, dist_type=DistanceType.Euclidean):
+    dist_mat = GUC_Distance(centroids, data)
+    i_min = np.argmin(dist_mat, axis=1)
+    c_count, c_mean = [0]*len(centroids), [None]*len(centroids)
+    for j in range(len(centroids)):
+        c_mean[j] = data.iloc[0].copy()*0
+    for i_u in range(len(i_min)):
+        user, c = data.iloc[i_u], i_min[i_u]
+        c_count[c] += 1
+        c_mean[c] += user
+    for c in range(len(c_count)):
+        c_mean[c] /= c_count[c]
+    return c_mean
+def GUC_K_mean(data, K, dist_type=DistanceType.Euclidean):
+    centroids = [None]*K
+    for c in range(len(centroids)):
+        centroids[c] = data.sample(n=1).reset_index(drop=True).iloc[0]
+    epsillon = 1
+    while epsillon > 0.001:
+        _centroids = GUC_K_mean_update(centroids, data)
+        epsillon = 0
+        for c, _centroid in enumerate(_centroids):
+            epsillon += np.sum(abs(_centroid - centroids[c]))
+        centroids = _centroids
+        print(epsillon)
+    print("the distance is Converged")
+    return centroids
+def GUC_Get_Users(centroids, data):
+    dist_mat = GUC_Distance(centroids, data)
+    i_min = np.argmin(dist_mat, axis=1)
+    separated = [None]*len(centroids)
+    for i in range(len(centroids)):
+        separated[i] = []
+    for j in range(len(i_min)):
+        c = i_min[j]
+        separated[c].append(j)
+    for i in range(len(centroids)):
+        separated[i] = data.iloc[separated[i]]
+    return separated
+centroids = GUC_K_mean(data, 5)
+separated = GUC_Get_Users(centroids, data)
+colors = ['Red', 'Blue', 'Yellow', 'Green', 'Orange']
+for i in range(len(separated)):
+    plt.scatter(separated[i]['Age'], separated[i]['Income'], color=colors[i])
+plt.show()
